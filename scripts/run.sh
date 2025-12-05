@@ -16,13 +16,27 @@ INSTANCE_TYPE="standard-v1"
 mkdir -p "$HOME/.ssh"
 echo "$PUBLIC_KEY" >"$SSH_KEY_PATH.pub"
 echo "$PRIVATE_KEY" >"$SSH_KEY_PATH"
-cat <<EOF >~/.ssh/config
+cat $HOME/.ssh/config <<EOF
 Host *
     IdentityFile ~/.ssh/id_ed25519
     IdentitiesOnly yes
 EOF
+
 chmod 600 ~/.ssh/id_ed25519
 chmod 644 ~/.ssh/id_ed25519.pub
+
+cat >cloud-init.yaml <<EOF
+#cloud-config
+users:
+  - name: $SSH_USER
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - $(echo "$PUBLIC_KEY")
+ssh_pwauth: no
+disable_root: true
+EOF
 
 yc config set token $YC_TOKEN
 
@@ -35,7 +49,7 @@ YC_INSTANCE_ID=$(yc compute instance create \
 	--create-boot-disk size=20,image-id="$YC_IMAGE_ID" \
 	--memory=2 \
 	--cores=2 \
-	--ssh-key "${SSH_KEY_PATH}.pub" \
+	--metadata-from-file user-data=cloud-init.yaml \
 	--format json | jq -r '.id')
 
 echo "Instance ID: $YC_INSTANCE_ID"
