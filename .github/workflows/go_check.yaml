@@ -24,6 +24,9 @@ jobs:
           calculatedSha=$(git rev-parse --short ${{ github.sha }})
           echo "COMMIT_SHORT_SHA=$calculatedSha" >> $GITHUB_ENV
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Make scripts executable
         run: chmod +x scripts/*.sh
 
@@ -61,6 +64,8 @@ jobs:
           YC_TOKEN: ${{ secrets.YC_TOKEN }}
           YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
           YC_ZONE: ${{ secrets.YC_ZONE }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PUBLIC_KEY: ${{ vars.PUBLIC_KEY }}
 
       - run: |
           echo "Deployed server to ${API_HOST}"

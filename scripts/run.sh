@@ -8,8 +8,13 @@ YC_TOKEN=$YC_TOKEN
 YC_IMAGE_ID="fd8bnguet48kpk4ovt1u"
 INSTANCE_NAME="prices-app-$(date +%s)"
 SSH_USER="ubuntu"
-SSH_KEY_PATH="$HOME/.ssh/id_rsa"
+PUBLIC_KEY=$PUBLIC_KEY
+PRIVATE_KEY=$PRIVATE_KEY
+SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
 INSTANCE_TYPE="standard-v1"
+
+echo -n "$PUBLIC_KEY" > "$SSH_KEY_PATH.pub"
+echo -n "$PRIVATE_KEY" > "$SSH_KEY_PATH"
 
 yc config set token $YC_TOKEN
 
