@@ -16,7 +16,7 @@ INSTANCE_TYPE="standard-v1"
 mkdir -p "$HOME/.ssh"
 echo "$PUBLIC_KEY" >"$SSH_KEY_PATH.pub"
 echo "$PRIVATE_KEY" >"$SSH_KEY_PATH"
-cat $HOME/.ssh/config <<EOF
+cat >$HOME/.ssh/config <<EOF
 Host *
     IdentityFile ~/.ssh/id_ed25519
     IdentitiesOnly yes
