@@ -14,7 +14,7 @@ func main() {
 		Host:     os.Getenv("DB_HOST"),
 		Port:     5432,
 		User:     os.Getenv("DB_USER"),
-		Password: os.Getenv("DB_PASS"),
+		Password: os.Getenv("DB_PASSWORD"),
 		DBName:   os.Getenv("DB_NAME"),
 		SSLMode:  "disable",
 	})

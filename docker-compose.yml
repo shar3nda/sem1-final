@@ -7,8 +7,8 @@ services:
       - .env
     environment:
       POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      PGPASSWORD: ${DB_PASS}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGPASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
@@ -22,7 +22,7 @@ services:
       - pg_data:/var/lib/postgresql/data
 
   api:
-    build: .
+    image: ${FULL_IMAGE_NAME}
     container_name: prices_api
     restart: always
     env_file:
