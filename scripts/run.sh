@@ -96,7 +96,8 @@ scp docker-compose.yml "$SSH_USER@$PUBLIC_IP:/home/$SSH_USER/"
 scp .env "$SSH_USER@$PUBLIC_IP:/home/$SSH_USER/"
 
 echo "Starting Docker Compose..."
-ssh "$SSH_USER@$PUBLIC_IP" <<'EOF'
+ssh "$SSH_USER@$PUBLIC_IP" <<EOF
+export FULL_IMAGE_NAME=$FULL_IMAGE_NAME
 docker compose pull >/dev/null 2>&1
 docker compose up -d
 EOF
