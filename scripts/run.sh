@@ -3,22 +3,22 @@ set -e
 set -o pipefail
 
 YC_FOLDER_ID=$YC_FOLDER_ID
-YC_ZONE=${YC_ZONE:-ru-central1-a}
+YC_ZONE=$YC_ZONE
+YC_TOKEN=$YC_TOKEN
 YC_IMAGE_ID="fd8bnguet48kpk4ovt1u"
 INSTANCE_NAME="prices-app-$(date +%s)"
 SSH_USER="ubuntu"
 SSH_KEY_PATH="$HOME/.ssh/id_rsa"
 INSTANCE_TYPE="standard-v1"
 
-curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-export PATH="$PATH:$HOME/yandex-cloud/bin"
+yc config set token $YC_TOKEN
 
 echo "Creating VM..."
 YC_INSTANCE_ID=$(yc compute instance create \
 	--name "$INSTANCE_NAME" \
 	--folder-id "$YC_FOLDER_ID" \
 	--zone "$YC_ZONE" \
-	--network-interface subnet-name=default,nat-ip-version=ipv4 \
+	--network-interface subnet-name=default-$YC_ZONE,nat-ip-version=ipv4 \
 	--create-boot-disk size=20,image-id="$YC_IMAGE_ID" \
 	--memory=2 \
 	--cores=2 \
