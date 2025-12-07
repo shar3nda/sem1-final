@@ -58,32 +58,14 @@ func handlePostPrices(pg *db.PG, w http.ResponseWriter, r *http.Request) {
 	}
 	defer rc.Close()
 
-	var (
-		rowCount int
-		insCount int
-		errCount int
-		dupCount int
-	)
+	var prices []models.Price
 
 	parseErr := csv.ParseCSV(rc, func(line int, price models.Price, err error) {
-		rowCount++
 		if err != nil {
-			errCount++
 			log.Printf("line %d parse error: %v\n", line, err)
 			return
 		}
-
-		inserted, err := db.InsertPrice(pg, price)
-		if err != nil {
-			errCount++
-			log.Printf("line %d insert error: %v\n", line, err)
-			return
-		}
-		if !inserted {
-			dupCount++
-			log.Printf("line %d duplicate: %+v\n", line, price)
-		}
-		insCount++
+		prices = append(prices, price)
 	})
 
 	if parseErr != nil {
@@ -91,11 +73,10 @@ func handlePostPrices(pg *db.PG, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Processed %d rows (%d inserted, %d errors, %d duplicates)\n", rowCount, insCount, errCount, dupCount)
-	totalItems, err := db.SelectTotalItems(pg)
+	stats, err := db.InsertPrices(pg, prices)
 	if err != nil {
-		log.Printf("failed to fetch total items: %v", err)
-		http.Error(w, "failed to fetch total items", http.StatusInternalServerError)
+		http.Error(w, "database transaction failed", http.StatusInternalServerError)
+		log.Printf("TX failed: %v", err)
 		return
 	}
 
@@ -114,15 +95,15 @@ func handlePostPrices(pg *db.PG, w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := PricesResponse{
-		TotalCount:      rowCount,
-		DuplicatesCount: dupCount,
-		TotalItems:      totalItems,
+		TotalCount:      len(prices),
+		DuplicatesCount: stats.DupCount,
+		TotalItems:      stats.InsCount,
 		TotalCategories: totalCategories,
 		TotalPrice:      totalPrice,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func PostPrices(pg *db.PG) http.HandlerFunc {
@@ -132,40 +113,50 @@ func PostPrices(pg *db.PG) http.HandlerFunc {
 }
 
 func handleGetPrices(pg *db.PG, w http.ResponseWriter, r *http.Request) {
-	startStr := r.URL.Query().Get("start")
-	endStr := r.URL.Query().Get("end")
-	minStr := r.URL.Query().Get("min")
-	maxStr := r.URL.Query().Get("max")
+	var (
+		start *time.Time
+		end   *time.Time
+		min   *int
+		max   *int
+	)
 
-	if startStr == "" || endStr == "" || minStr == "" || maxStr == "" {
-		http.Error(w, "missing required query parameters", http.StatusBadRequest)
-		return
+	if startStr := r.URL.Query().Get("start"); startStr != "" {
+		s, err := time.Parse("2006-01-02", startStr)
+		if err != nil {
+			http.Error(w, "invalid start date", http.StatusBadRequest)
+			return
+		}
+		start = &s
 	}
 
-	start, err := time.Parse("2006-01-02", startStr)
-	if err != nil {
-		http.Error(w, "invalid start date", http.StatusBadRequest)
-		return
+	if endStr := r.URL.Query().Get("end"); endStr != "" {
+		e, err := time.Parse("2006-01-02", endStr)
+		if err != nil {
+			http.Error(w, "invalid end date", http.StatusBadRequest)
+			return
+		}
+		end = &e
 	}
 
-	end, err := time.Parse("2006-01-02", endStr)
-	if err != nil {
-		http.Error(w, "invalid end date", http.StatusBadRequest)
-		return
+	if minStr := r.URL.Query().Get("min"); minStr != "" {
+		v, err := strconv.Atoi(minStr)
+		if err != nil || v < 0 {
+			http.Error(w, "invalid min value", http.StatusBadRequest)
+			return
+		}
+		min = &v
 	}
 
-	min, err := strconv.Atoi(minStr)
-	if err != nil || min < 0 {
-		http.Error(w, "invalid min value", http.StatusBadRequest)
-		return
-	}
-	max, err := strconv.Atoi(maxStr)
-	if err != nil || max < 0 {
-		http.Error(w, "invalid max value", http.StatusBadRequest)
-		return
+	if maxStr := r.URL.Query().Get("max"); maxStr != "" {
+		v, err := strconv.Atoi(maxStr)
+		if err != nil || v < 0 {
+			http.Error(w, "invalid max value", http.StatusBadRequest)
+			return
+		}
+		max = &v
 	}
 
-	rows, err := db.SelectByFilter(start, end, min, max, pg)
+	rows, err := db.SelectByFilter(pg, start, end, min, max)
 	if err != nil {
 		http.Error(w, "failed to fetch data", http.StatusInternalServerError)
 		return
@@ -185,7 +176,11 @@ func handleGetPrices(pg *db.PG, w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename=prices.zip")
-	w.Write(zipData)
+	_, err = w.Write(zipData)
+	if err != nil {
+		http.Error(w, "failed to write response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func GetPrices(pg *db.PG) http.HandlerFunc {
